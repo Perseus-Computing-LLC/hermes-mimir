@@ -32,6 +32,31 @@ cargo install mimir
 # https://github.com/tcconnally/mimir/releases
 ```
 
+### Hermes Plugin Setup
+
+Hermes discovers memory providers in `$HERMES_HOME/plugins/<name>/`.
+After installing the package, link it into your Hermes plugins directory:
+
+```bash
+HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+mkdir -p "$HERMES_HOME/plugins/mimir"
+
+# Copy the provider module and metadata
+python3 -c "
+import hermes_mimir, shutil, os
+src = os.path.dirname(hermes_mimir.__file__)
+shutil.copy(os.path.join(src, '__init__.py'), '$HERMES_HOME/plugins/mimir/__init__.py')
+shutil.copy(os.path.join(os.path.dirname(src), 'plugin.yaml'), '$HERMES_HOME/plugins/mimir/plugin.yaml')
+print('Plugin installed to $HERMES_HOME/plugins/mimir/')
+"
+```
+
+Verify the plugin is discovered:
+
+```bash
+hermes memory setup   # should show mimir as an available provider
+```
+
 ## Configuration
 
 Add to `~/.hermes/config.yaml`:
