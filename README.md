@@ -1,0 +1,97 @@
+# hermes-mimir
+
+Mimir persistent memory provider for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+
+Mimir is an encrypted, local-first memory engine for AI agents — 27 MCP tools,
+single Rust binary (~8 MB), embedded SQLite + FTS5 + vector search. Zero cloud
+dependencies.
+
+## Features
+
+- **Encrypted at rest** — AES-256-GCM encryption for production deployments
+- **Hybrid search** — BM25 (FTS5) + dense embeddings + Reciprocal Rank Fusion
+- **Confidence decay** — memories naturally decay unless reinforced
+- **27 MCP tools** — full memory lifecycle: remember, recall, search, forget,
+  summarize, decay, vault export, embed, prune
+- **Web dashboard** — browse and manage memories at `http://localhost:8080`
+- **Single binary** — no Docker, Postgres, or cloud required
+
+## Installation
+
+```bash
+pip install hermes-mimir
+```
+
+Then install the Mimir binary:
+
+```bash
+# Via cargo
+cargo install mimir
+
+# Or download from GitHub Releases
+# https://github.com/tcconnally/mimir/releases
+```
+
+## Configuration
+
+Add to `~/.hermes/config.yaml`:
+
+```yaml
+memory:
+  provider: mimir
+  mimir:
+    binary: /usr/local/bin/mimir     # optional — auto-detected from PATH
+    db_path: ~/.hermes/mimir.db      # optional — defaults to ~/.hermes/mimir.db
+```
+
+Then restart Hermes:
+
+```bash
+hermes gateway restart
+# or exit and re-launch the CLI
+```
+
+## How It Works
+
+`hermes-mimir` implements Hermes's `MemoryProvider` ABC. On startup, it:
+
+1. Launches the Mimir binary as a subprocess
+2. Performs an MCP JSON-RPC 2.0 handshake (`initialize`)
+3. Discovers available MCP tools via `tools/list`
+4. Exposes those tools to the Hermes agent as callable functions
+5. Handles `prefetch` (recall before each turn) and `sync_turn` (persist after each turn)
+
+The agent sees `mimir_remember`, `mimir_recall`, `mimir_search_memories`, and
+24 other tools — all backed by the Mimir binary running alongside Hermes.
+
+## Comparison
+
+| Feature | Built-in memory | Mimir |
+|---|---|---|
+| Storage | Flat text files | Encrypted SQLite |
+| Search | Substring grep | FTS5 + embeddings + RRF |
+| Encryption | None | AES-256-GCM |
+| Cross-session | Yes (same files) | Yes (structured entities) |
+| Decay | No | Ebbinghaus decay with configurable half-life |
+| Dashboard | No | Built-in web UI |
+| Tools | 1 (`memory`) | 27 |
+| Dependencies | None | Single Rust binary |
+
+## Development
+
+```bash
+git clone https://github.com/tcconnally/hermes-mimir.git
+cd hermes-mimir
+pip install -e ".[dev]"
+pytest
+```
+
+## License
+
+MIT — same as Hermes Agent and Mimir.
+
+## Related
+
+- [Mimir](https://github.com/tcconnally/mimir) — the memory engine
+- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the agent framework
+- [Perseus](https://github.com/tcconnally/perseus) — live context engine for AI agents

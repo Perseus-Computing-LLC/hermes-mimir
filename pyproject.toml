@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "hermes-mimir"
+version = "0.1.0"
+description = "Mimir persistent memory provider for Hermes Agent — encrypted, local-first, 27 MCP tools"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "Thomas Connally", email = "tcconnally@users.noreply.github.com"},
+]
+keywords = ["hermes-agent", "memory", "mimir", "mcp", "ai-agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+[project.urls]
+Homepage = "https://github.com/tcconnally/mimir"
+Repository = "https://github.com/tcconnally/mimir"
+Issues = "https://github.com/tcconnally/mimir/issues"
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-asyncio"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["hermes_mimir"]
