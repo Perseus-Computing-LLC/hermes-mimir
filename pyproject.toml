@@ -25,9 +25,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/tcconnally/mimir"
-Repository = "https://github.com/tcconnally/mimir"
-Issues = "https://github.com/tcconnally/mimir/issues"
+Homepage = "https://github.com/Perseus-Computing-LLC/mimir"
+Repository = "https://github.com/Perseus-Computing-LLC/mimir"
+Issues = "https://github.com/Perseus-Computing-LLC/mimir/issues"
 
 [project.optional-dependencies]
 dev = ["pytest", "pytest-asyncio"]

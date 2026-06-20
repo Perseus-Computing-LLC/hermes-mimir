@@ -29,7 +29,7 @@ Then install the Mimir binary:
 cargo install mimir
 
 # Or download from GitHub Releases
-# https://github.com/tcconnally/mimir/releases
+# https://github.com/Perseus-Computing-LLC/mimir/releases
 ```
 
 ### Hermes Plugin Setup
@@ -105,7 +105,7 @@ The agent sees `mimir_remember`, `mimir_recall`, `mimir_search_memories`, and
 ## Development
 
 ```bash
-git clone https://github.com/tcconnally/hermes-mimir.git
+git clone https://github.com/Perseus-Computing-LLC/hermes-mimir.git
 cd hermes-mimir
 pip install -e ".[dev]"
 pytest
@@ -117,6 +117,6 @@ MIT — same as Hermes Agent and Mimir.
 
 ## Related
 
-- [Mimir](https://github.com/tcconnally/mimir) — the memory engine
+- [Mimir](https://github.com/Perseus-Computing-LLC/mimir) — the memory engine
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the agent framework
-- [Perseus](https://github.com/tcconnally/perseus) — live context engine for AI agents
+- [Perseus](https://github.com/Perseus-Computing-LLC/perseus) — live context engine for AI agents
