@@ -2,7 +2,7 @@ name: mimir
 description: "Mimir — encrypted, local-first persistent memory for AI agents (27 MCP tools)"
 version: "0.1.0"
 author: "Thomas Connally"
-homepage: "https://github.com/tcconnally/mimir"
+homepage: "https://github.com/Perseus-Computing-LLC/mimir"
 license: MIT
 hermes:
   min_version: "0.16.0"

@@ -6,7 +6,7 @@ local-first memory with hybrid search (FTS5 + embeddings + RRF).
 
 Requires the Mimir binary.  Install with:
     cargo install mimir
-or download from https://github.com/tcconnally/mimir/releases
+or download from https://github.com/Perseus-Computing-LLC/mimir/releases
 
 Configuration (in config.yaml):
     memory:
