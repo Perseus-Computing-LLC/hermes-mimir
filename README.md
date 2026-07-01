@@ -1,8 +1,8 @@
 # hermes-mimir
 
-Mneme (formerly "Mimir") persistent memory provider for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+Perseus Vault (formerly "Mimir") persistent memory provider for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
-Mneme is an encrypted, local-first memory engine for AI agents — 27 MCP tools,
+Perseus Vault is an encrypted, local-first memory engine for AI agents — 27 MCP tools,
 single Rust binary (~8 MB), embedded SQLite + FTS5 + vector search. Zero cloud
 dependencies.
 
@@ -26,14 +26,14 @@ pip install git+https://github.com/Perseus-Computing-LLC/hermes-mimir.git
 # pip install hermes-mimir
 ```
 
-Then install the Mneme binary (still named `mimir` for back-compat, `mneme` is the new primary name):
+Then install the Perseus Vault binary (still named `mimir` for back-compat, `perseus-vault` is the new primary name):
 
 ```bash
 # Via cargo
-cargo install mneme
+cargo install perseus-vault
 
 # Or download from GitHub Releases
-# https://github.com/Perseus-Computing-LLC/mneme/releases
+# https://github.com/Perseus-Computing-LLC/perseus-vault/releases
 ```
 
 ### Hermes Plugin Setup
@@ -84,18 +84,18 @@ hermes gateway restart
 
 `hermes-mimir` implements Hermes's `MemoryProvider` ABC. On startup, it:
 
-1. Launches the Mneme binary as a subprocess
+1. Launches the Perseus Vault binary as a subprocess
 2. Performs an MCP JSON-RPC 2.0 handshake (`initialize`)
 3. Discovers available MCP tools via `tools/list`
 4. Exposes those tools to the Hermes agent as callable functions
 5. Handles `prefetch` (recall before each turn) and `sync_turn` (persist after each turn)
 
 The agent sees `mimir_remember`, `mimir_recall`, `mimir_search_memories`, and
-24 other tools — all backed by the Mneme binary running alongside Hermes.
+24 other tools — all backed by the Perseus Vault binary running alongside Hermes.
 
 ## Comparison
 
-| Feature | Built-in memory | Mneme |
+| Feature | Built-in memory | Perseus Vault |
 |---|---|---|
 | Storage | Flat text files | Encrypted SQLite |
 | Search | Substring grep | FTS5 + embeddings + RRF |
@@ -117,10 +117,10 @@ pytest
 
 ## License
 
-MIT — same as Hermes Agent and Mneme.
+MIT — same as Hermes Agent and Perseus Vault.
 
 ## Related
 
-- [Mneme](https://github.com/Perseus-Computing-LLC/mneme) — the memory engine (formerly "Mimir")
+- [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) — the memory engine (formerly "Mimir"/"Mneme")
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the agent framework
 - [Perseus](https://github.com/Perseus-Computing-LLC/perseus) — live context engine for AI agents
