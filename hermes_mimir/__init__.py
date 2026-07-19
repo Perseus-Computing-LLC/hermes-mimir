@@ -1,19 +1,19 @@
-"""Mimir memory provider for Hermes Agent.
+"""Perseus Vault memory provider for Hermes Agent.
 
-Bridges Hermes's MemoryProvider ABC to the Mimir persistent memory
+Bridges Hermes's MemoryProvider ABC to the Perseus Vault persistent memory
 engine via MCP JSON-RPC 2.0 over stdio.  Provides encrypted,
 local-first memory with hybrid search (FTS5 + embeddings + RRF).
 
-Requires the Mimir binary.  Install with:
-    cargo install mimir
+Requires the Perseus Vault binary.  Install with:
+    cargo install perseus-vault
 or download from https://github.com/Perseus-Computing-LLC/perseus-vault/releases
 
 Configuration (in config.yaml):
     memory:
-      provider: mimir
-      mimir:
-        binary: /usr/local/bin/mimir   # optional, auto-detected
-        db_path: ~/.hermes/mimir.db    # optional
+      provider: perseus-vault
+      perseus_vault:
+        binary: /usr/local/bin/perseus-vault   # optional, auto-detected
+        db_path: ~/.hermes/perseus-vault.db    # optional
 """
 
 from __future__ import annotations
@@ -77,7 +77,7 @@ class _MimirClient:
             result = self._call("initialize", {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {},
-                "clientInfo": {"name": "hermes-mimir", "version": "0.1.0"},
+                "clientInfo": {"name": "hermes-perseus-vault", "version": "0.2.0"},
             })
             if result is None:
                 logger.error("Mimir initialize handshake failed")
@@ -194,11 +194,11 @@ class _MimirClient:
 
 def register(ctx):
     """Plugin entry point — called by Hermes plugin loader."""
-    ctx.register_memory_provider(MimirProvider())
+    ctx.register_memory_provider(PerseusVaultProvider())
 
 
-class MimirProvider(MemoryProvider):
-    """Mimir persistent memory provider for Hermes Agent.
+class PerseusVaultProvider(MemoryProvider):
+    """Perseus Vault persistent memory provider for Hermes Agent.
 
     Provides 27 MCP tools for full memory lifecycle: remember, recall,
     search, forget, decay, vault export, summarize, embed, prune, and more.
@@ -211,6 +211,7 @@ class MimirProvider(MemoryProvider):
         self._session_id: str = ""
         self._hermes_home: str = ""
         self._tool_schemas: List[Dict[str, Any]] = []
+        self._tool_name_aliases: Dict[str, str] = {}
         self._initialized = False
 
     # ------------------------------------------------------------------
@@ -219,15 +220,38 @@ class MimirProvider(MemoryProvider):
 
     @property
     def name(self) -> str:
-        return "mimir"
+        return "perseus-vault"
 
     def is_available(self) -> bool:
-        """Check if the Mimir binary is findable."""
+        """Check if the Perseus Vault binary is findable without I/O."""
         binary = self._resolve_binary()
         return binary is not None
 
+    def get_config_schema(self) -> List[Dict[str, Any]]:
+        """Declare the two non-secret settings required by the setup wizard."""
+        return [
+            {
+                "key": "binary",
+                "description": "Perseus Vault binary path (leave blank to use PATH)",
+                "default": "",
+            },
+            {
+                "key": "db_path",
+                "description": "Vault database path (leave blank for the profile default)",
+                "default": "",
+            },
+        ]
+
+    def save_config(self, values: Dict[str, Any], hermes_home: str) -> None:
+        """Persist wizard configuration in the active Hermes profile."""
+        path = Path(hermes_home) / "perseus-vault.json"
+        path.write_text(json.dumps({
+            key: value for key, value in values.items()
+            if key in {"binary", "db_path"} and value
+        }, indent=2) + "\n", encoding="utf-8")
+
     def initialize(self, session_id: str, **kwargs) -> None:
-        """Start the Mimir subprocess and perform MCP handshake."""
+        """Start the Perseus Vault subprocess and perform MCP handshake."""
         self._session_id = session_id
         self._hermes_home = kwargs.get("hermes_home", os.path.expanduser("~/.hermes"))
         agent_context = kwargs.get("agent_context", "primary")
@@ -241,14 +265,14 @@ class MimirProvider(MemoryProvider):
 
         binary = self._resolve_binary()
         if not binary:
-            logger.warning("Mimir binary not found — memory provider unavailable")
+            logger.warning("Perseus Vault binary not found — memory provider unavailable")
             return
 
         db_path = self._resolve_db_path()
         self._client = _MimirClient(binary, db_path)
 
         if not self._client.start():
-            logger.warning("Mimir failed to start — memory provider unavailable")
+            logger.warning("Perseus Vault failed to start — memory provider unavailable")
             self._client = None
             return
 
@@ -258,23 +282,23 @@ class MimirProvider(MemoryProvider):
             # Convert MCP tool schemas to OpenAI function-calling format
             self._tool_schemas = self._normalize_schemas(self._tool_schemas)
         except Exception as e:
-            logger.warning("Failed to discover Mimir tools: %s", e)
+            logger.warning("Failed to discover Perseus Vault tools: %s", e)
             self._tool_schemas = []
 
         self._initialized = True
         logger.info(
-            "Mimir memory provider ready — %d tools, db=%s",
+            "Perseus Vault memory provider ready — %d tools, db=%s",
             len(self._tool_schemas), db_path,
         )
 
     def system_prompt_block(self) -> str:
-        """Include Mimir availability in the system prompt."""
+        """Include Perseus Vault availability in the system prompt."""
         if not self._initialized or not self._client or not self._client.is_running():
             return ""
         return (
-            "You have access to Mimir persistent memory (27 tools). "
-            "Use mimir_remember to store important information, "
-            "mimir_recall to retrieve context, and mimir_search_memories "
+            "You have access to Perseus Vault persistent memory. "
+            "Use perseus_vault_remember to store important information, "
+            "perseus_vault_recall to retrieve context, and perseus_vault_semantic_search "
             "for semantic search. Memories persist across sessions with "
             "AES-256-GCM encryption and confidence decay."
         )
@@ -285,14 +309,20 @@ class MimirProvider(MemoryProvider):
             return ""
 
         try:
-            result = self._client.call_tool("mimir_recall", {
+            result = self._call_vault_tool("perseus_vault_recall", {
                 "query": query,
                 "limit": 5,
             })
             if result and result.strip() and result.strip() != "null":
-                return f"[Mimir recall]\n{result}"
+                try:
+                    payload = json.loads(result)
+                    if isinstance(payload, dict) and "error" in payload:
+                        return ""
+                except json.JSONDecodeError:
+                    pass
+                return f"[Perseus Vault recall]\n{result}"
         except Exception as e:
-            logger.debug("Mimir prefetch failed: %s", e)
+            logger.debug("Perseus Vault prefetch failed: %s", e)
         return ""
 
     def sync_turn(
@@ -303,7 +333,7 @@ class MimirProvider(MemoryProvider):
         session_id: str = "",
         messages: Optional[List[Dict[str, Any]]] = None,
     ) -> None:
-        """Store the completed turn in Mimir."""
+        """Store the completed turn in Perseus Vault."""
         if not self._client or not self._client.is_running():
             return
 
@@ -318,65 +348,71 @@ class MimirProvider(MemoryProvider):
                     "assistant": assistant_content[:2000],
                     "timestamp": int(time.time()),
                 })
-                self._client.call_tool("mimir_remember", {
+                self._call_vault_tool("perseus_vault_remember", {
                     "key": key,
                     "category": "conversation",
                     "body_json": body,
                     "status": "active",
                 })
             except Exception as e:
-                logger.debug("Mimir sync_turn failed: %s", e)
+                logger.debug("Perseus Vault sync_turn failed: %s", e)
 
         t = threading.Thread(target=_store, daemon=True, name="mimir-sync")
         t.start()
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
-        """Return Mimir tool schemas in OpenAI function-calling format."""
+        """Return Perseus Vault tool schemas in OpenAI function-calling format."""
         return self._tool_schemas
 
     def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
-        """Forward a tool call to Mimir via MCP."""
+        """Forward a tool call to Perseus Vault via MCP."""
         if not self._client or not self._client.is_running():
-            return json.dumps({"error": "Mimir is not running"})
+            return json.dumps({"error": "Perseus Vault is not running"})
 
         try:
-            return self._client.call_tool(tool_name, args)
+            return self._call_vault_tool(tool_name, args)
         except Exception as e:
-            logger.warning("Mimir tool call '%s' failed: %s", tool_name, e)
+            logger.warning("Perseus Vault tool call '%s' failed: %s", tool_name, e)
             return json.dumps({"error": str(e)})
 
     def shutdown(self) -> None:
-        """Clean shutdown — terminate the Mimir subprocess."""
+        """Clean shutdown — terminate the Perseus Vault subprocess."""
         if self._client:
             self._client.stop()
         self._initialized = False
+
+    def _call_vault_tool(self, canonical_name: str, args: Dict[str, Any]) -> str:
+        """Call a canonical tool through the name advertised by the binary."""
+        if not self._client:
+            return json.dumps({"error": "Perseus Vault is not running"})
+        binary_name = self._tool_name_aliases.get(canonical_name)
+        if binary_name is None and canonical_name.startswith("perseus_vault_"):
+            binary_name = f"mimir_{canonical_name.removeprefix('perseus_vault_')}"
+        return self._client.call_tool(binary_name or canonical_name, args)
 
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------
 
     def _resolve_binary(self) -> Optional[str]:
-        """Find the Mimir binary on this system."""
-        # Check explicit config
-        try:
-            from hermes_cli.config import load_config
-            cfg = load_config() or {}
-            explicit = cfg.get("memory", {}).get("mimir", {}).get("binary", "")
-            if explicit and os.path.isfile(explicit):
-                return explicit
-        except Exception:
-            pass
+        """Find the canonical binary, retaining the legacy name as fallback."""
+        explicit = self._settings().get("binary", "")
+        if explicit and os.path.isfile(explicit):
+            return explicit
 
         # Check PATH
-        which = shutil.which("mimir")
-        if which:
-            return which
+        for name in ("perseus-vault", "mimir"):
+            which = shutil.which(name)
+            if which:
+                return which
 
         # Check common locations
         for candidate in [
+            os.path.expanduser("~/.cargo/bin/perseus-vault"),
+            "/usr/local/bin/perseus-vault",
+            "/opt/perseus-vault/perseus-vault",
             os.path.expanduser("~/.cargo/bin/mimir"),
             "/usr/local/bin/mimir",
-            "/opt/mimir/mimir",
         ]:
             if os.path.isfile(candidate):
                 return candidate
@@ -384,16 +420,31 @@ class MimirProvider(MemoryProvider):
         return None
 
     def _resolve_db_path(self) -> str:
-        """Determine where Mimir should store its database."""
+        """Determine a profile-scoped database path without losing legacy data."""
+        explicit = self._settings().get("db_path", "")
+        if explicit:
+            return os.path.expanduser(explicit)
+        legacy_path = os.path.join(self._hermes_home, "mimir.db")
+        if os.path.exists(legacy_path):
+            return legacy_path
+        return os.path.join(self._hermes_home, "perseus-vault.db")
+
+    def _settings(self) -> Dict[str, Any]:
+        """Read canonical profile settings, with old config as a fallback."""
+        settings: Dict[str, Any] = {}
+        home = self._hermes_home or os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))
+        config_path = Path(home) / "perseus-vault.json"
+        try:
+            settings.update(json.loads(config_path.read_text(encoding="utf-8")))
+        except (OSError, json.JSONDecodeError):
+            pass
         try:
             from hermes_cli.config import load_config
-            cfg = load_config() or {}
-            explicit = cfg.get("memory", {}).get("mimir", {}).get("db_path", "")
-            if explicit:
-                return os.path.expanduser(explicit)
+            memory = (load_config() or {}).get("memory", {})
+            settings = {**memory.get("mimir", {}), **memory.get("perseus_vault", {}), **settings}
         except Exception:
             pass
-        return os.path.join(self._hermes_home, "mimir.db")
+        return settings
 
     def _normalize_schemas(
         self, mcp_tools: List[Dict[str, Any]]
@@ -406,18 +457,41 @@ class MimirProvider(MemoryProvider):
         OpenAI format:
             {"name": "mimir_remember", "description": "...", "parameters": {...}}
         """
-        normalized = []
+        canonical: Dict[str, Dict[str, Any]] = {}
+        legacy: Dict[str, Dict[str, Any]] = {}
+        advertised_names: Dict[str, str] = {}
+        order: List[str] = []
         for tool in mcp_tools:
             name = tool.get("name", "")
-            # Only expose tools that start with mimir_ to avoid namespace conflicts
-            if not name or not name.startswith("mimir_"):
+            if name.startswith("perseus_vault_"):
+                suffix = name.removeprefix("perseus_vault_")
+                target = canonical
+                canonical_name = name
+            elif name.startswith("mimir_"):
+                suffix = name.removeprefix("mimir_")
+                target = legacy
+                canonical_name = f"perseus_vault_{suffix}"
+            else:
                 continue
-            normalized.append({
-                "name": name,
+            if suffix not in canonical and suffix not in legacy:
+                order.append(suffix)
+            if name.startswith("perseus_vault_") or canonical_name not in advertised_names:
+                advertised_names[canonical_name] = name
+            target[suffix] = {
+                "name": canonical_name,
                 "description": tool.get("description", ""),
                 "parameters": tool.get("inputSchema", {
                     "type": "object",
                     "properties": {},
                 }),
-            })
-        return normalized
+            }
+        result = [canonical[suffix] if suffix in canonical else legacy[suffix] for suffix in order]
+        self._tool_name_aliases = {
+            schema["name"]: advertised_names[schema["name"]]
+            for schema in result
+        }
+        return result
+
+
+# Backward-compatible import for existing standalone integrations.
+MimirProvider = PerseusVaultProvider

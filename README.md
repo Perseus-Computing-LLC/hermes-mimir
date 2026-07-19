@@ -1,126 +1,97 @@
-# hermes-mimir
+# Hermes Perseus Vault provider
 
-Perseus Vault (formerly "Mimir") persistent memory provider for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+A local-first [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) memory provider for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
-Perseus Vault is an encrypted, local-first memory engine for AI agents — 27 MCP tools,
-single Rust binary (~8 MB), embedded SQLite + FTS5 + vector search. Zero cloud
-dependencies.
+Perseus Vault runs as a local subprocess backed by encrypted SQLite. Hermes receives its memory lifecycle through the standard `MemoryProvider` contract: pre-turn recall, asynchronous completed-turn persistence, and explicit tool calls.
 
-## Features
+## Status
 
-- **Encrypted at rest** — AES-256-GCM encryption for production deployments
-- **Hybrid search** — BM25 (FTS5) + dense embeddings + Reciprocal Rank Fusion
-- **Confidence decay** — memories naturally decay unless reinforced
-- **27 MCP tools** — full memory lifecycle: remember, recall, search, forget,
-  summarize, decay, vault export, embed, prune
-- **Web dashboard** — browse and manage memories at `http://localhost:8080`
-- **Single binary** — no Docker, Postgres, or cloud required
+This repository is the standalone implementation and compatibility migration path. The canonical Hermes provider name is **`perseus-vault`**. `mimir` is accepted only as a legacy binary/config fallback so existing installations retain their data.
 
-## Installation
+## Install
+
+Install the Vault binary first:
 
 ```bash
-# From GitHub (until published to PyPI)
-pip install git+https://github.com/Perseus-Computing-LLC/hermes-mimir.git
-
-# Or from PyPI (coming soon)
-# pip install hermes-mimir
-```
-
-Then install the Perseus Vault binary (still named `mimir` for back-compat, `perseus-vault` is the new primary name):
-
-```bash
-# Via cargo
 cargo install perseus-vault
-
-# Or download from GitHub Releases
+# Or download a release from:
 # https://github.com/Perseus-Computing-LLC/perseus-vault/releases
 ```
 
-### Hermes Plugin Setup
+Install this provider package:
 
-Hermes discovers memory providers in `$HERMES_HOME/plugins/<name>/`.
-After installing the package, link it into your Hermes plugins directory:
+```bash
+pip install git+https://github.com/Perseus-Computing-LLC/hermes-mimir.git
+```
+
+Until the provider is bundled by Hermes, copy the package entrypoint and manifest into your active profile:
 
 ```bash
 HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
-mkdir -p "$HERMES_HOME/plugins/mimir"
+mkdir -p "$HERMES_HOME/plugins/perseus-vault"
+python - <<'PY'
+import hermes_mimir
+import os
+import shutil
 
-# Copy the provider module and metadata
-python3 -c "
-import hermes_mimir, shutil, os
-src = os.path.dirname(hermes_mimir.__file__)
-shutil.copy(os.path.join(src, '__init__.py'), '$HERMES_HOME/plugins/mimir/__init__.py')
-shutil.copy(os.path.join(os.path.dirname(src), 'plugin.yaml'), '$HERMES_HOME/plugins/mimir/plugin.yaml')
-print('Plugin installed to $HERMES_HOME/plugins/mimir/')
-"
+home = os.environ.get("HERMES_HOME", os.path.expanduser("~/.hermes"))
+target = os.path.join(home, "plugins", "perseus-vault")
+source = os.path.dirname(hermes_mimir.__file__)
+shutil.copy(os.path.join(source, "__init__.py"), os.path.join(target, "__init__.py"))
+shutil.copy(os.path.join(os.path.dirname(source), "plugin.yaml"), os.path.join(target, "plugin.yaml"))
+PY
 ```
 
-Verify the plugin is discovered:
+Then run:
 
 ```bash
-hermes memory setup   # should show mimir as an available provider
+hermes memory setup
 ```
+
+Select **perseus-vault**, configure its optional binary/database paths, and restart Hermes or start a new session.
 
 ## Configuration
 
-Add to `~/.hermes/config.yaml`:
+The setup wizard persists non-secret settings in the active Hermes profile at:
 
-```yaml
-memory:
-  provider: mimir
-  mimir:
-    binary: /usr/local/bin/mimir     # optional — auto-detected from PATH
-    db_path: ~/.hermes/mimir.db      # optional — defaults to ~/.hermes/mimir.db
+```text
+$HERMES_HOME/perseus-vault.json
 ```
 
-Then restart Hermes:
-
-```bash
-hermes gateway restart
-# or exit and re-launch the CLI
+```json
+{
+  "binary": "/usr/local/bin/perseus-vault",
+  "db_path": "/home/me/.hermes/perseus-vault.db"
+}
 ```
 
-## How It Works
+Both settings are optional:
 
-`hermes-mimir` implements Hermes's `MemoryProvider` ABC. On startup, it:
+- `binary` defaults to `perseus-vault` on `PATH`, falling back to legacy `mimir` locations for migration.
+- `db_path` defaults to `$HERMES_HOME/perseus-vault.db`. When an existing `$HERMES_HOME/mimir.db` exists, that database is retained automatically.
 
-1. Launches the Perseus Vault binary as a subprocess
-2. Performs an MCP JSON-RPC 2.0 handshake (`initialize`)
-3. Discovers available MCP tools via `tools/list`
-4. Exposes those tools to the Hermes agent as callable functions
-5. Handles `prefetch` (recall before each turn) and `sync_turn` (persist after each turn)
+Legacy `memory.mimir.binary` and `memory.mimir.db_path` configuration remains a fallback. Canonical profile JSON settings take precedence.
 
-The agent sees `mimir_remember`, `mimir_recall`, `mimir_search_memories`, and
-24 other tools — all backed by the Perseus Vault binary running alongside Hermes.
+## Tool naming and migration
 
-## Comparison
+Perseus Vault advertises canonical `perseus_vault_*` tools. The provider suppresses duplicate legacy aliases and exposes canonical names to Hermes. If connected to an older Vault binary that only advertises `mimir_*`, the provider maps those tool schemas to the canonical names while retaining compatibility with the binary's tool endpoint.
 
-| Feature | Built-in memory | Perseus Vault |
-|---|---|---|
-| Storage | Flat text files | Encrypted SQLite |
-| Search | Substring grep | FTS5 + embeddings + RRF |
-| Encryption | None | AES-256-GCM |
-| Cross-session | Yes (same files) | Yes (structured entities) |
-| Decay | No | Ebbinghaus decay with configurable half-life |
-| Dashboard | No | Built-in web UI |
-| Tools | 1 (`memory`) | 27 |
-| Dependencies | None | Single Rust binary |
+## Data and privacy
+
+- The provider launches a local `perseus-vault` subprocess and communicates through MCP JSON-RPC over stdio.
+- Automatic turn capture stores the user and assistant text for completed turns in the configured local Vault database.
+- No cloud endpoint, telemetry, or API key is required by this provider.
+- Vault encryption is configured by the Vault runtime; operators should configure its key management before storing sensitive data.
 
 ## Development
 
+The suite uses the Python standard library so it can run without a separate test dependency:
+
 ```bash
-git clone https://github.com/Perseus-Computing-LLC/hermes-mimir.git
-cd hermes-mimir
-pip install -e ".[dev]"
-pytest
+python -m unittest discover -s tests -p 'test_*.py' -v
+python -m compileall -q hermes_mimir tests
 ```
 
 ## License
 
-MIT — same as Hermes Agent and Perseus Vault.
-
-## Related
-
-- [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) — the memory engine (formerly "Mimir"/"Mneme")
-- [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the agent framework
-- [Perseus](https://github.com/Perseus-Computing-LLC/perseus) — live context engine for AI agents
+MIT.
