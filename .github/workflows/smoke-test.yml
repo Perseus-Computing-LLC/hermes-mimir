@@ -20,24 +20,27 @@ jobs:
       - name: Smoke test — imports and MemoryProvider interface
         run: |
           python - <<'EOF'
-          # Verify the package imports and exposes the MemoryProvider
-          from hermes_mimir import MimirMemoryProvider
-          print(f"Provider class: {MimirMemoryProvider.__name__}")
+          import sys
+          import types
 
-          # Verify it can be instantiated (without a running Mimir binary)
-          try:
-              provider = MimirMemoryProvider(mimir_binary="mimir")
-              print(f"Provider instantiated OK")
-          except Exception as e:
-              # Expected: Mimir binary won't be available in CI
-              print(f"Provider instantiation raised (expected in CI): {e}")
+          # The provider is imported by Hermes, which supplies this ABC. The
+          # standalone package intentionally has no Hermes dependency.
+          agent_module = types.ModuleType("agent")
+          memory_provider_module = types.ModuleType("agent.memory_provider")
+          class MemoryProvider:
+              pass
+          memory_provider_module.MemoryProvider = MemoryProvider
+          sys.modules["agent"] = agent_module
+          sys.modules["agent.memory_provider"] = memory_provider_module
 
-          # Check the provider has the expected interface methods
-          assert hasattr(MimirMemoryProvider, 'remember'), "Missing remember method"
-          assert hasattr(MimirMemoryProvider, 'recall'), "Missing recall method"
-          assert hasattr(MimirMemoryProvider, 'forget'), "Missing forget method"
-          print("All required methods present")
-          print("Smoke test PASSED")
+          from hermes_mimir import MimirProvider, PerseusVaultProvider
+
+          provider = PerseusVaultProvider()
+          assert provider.name == "perseus-vault"
+          assert isinstance(provider, MimirProvider)
+          for method in ("is_available", "initialize", "prefetch", "sync_turn", "get_tool_schemas", "handle_tool_call", "shutdown"):
+              assert hasattr(provider, method), f"Missing {method}"
+          print("Provider import and MemoryProvider interface passed")
           EOF
 
   lint:
