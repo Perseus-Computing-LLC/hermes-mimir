@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "hermes-mimir"
 version = "0.1.0"
-description = "Mimir persistent memory provider for Hermes Agent — encrypted, local-first, 27 MCP tools"
+description = "Perseus Vault legacy compatibility provider for Hermes Agent — encrypted, local-first, 27 MCP tools"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.11"

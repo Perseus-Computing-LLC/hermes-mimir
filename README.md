@@ -1,6 +1,6 @@
 # hermes-mimir
 
-Perseus Vault (formerly "Mimir") persistent memory provider for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
+Legacy compatibility provider for Perseus Vault persistent memory for [Hermes Agent](https://github.com/NousResearch/hermes-agent).
 
 Perseus Vault is an encrypted, local-first memory engine for AI agents — 27 MCP tools,
 single Rust binary (~8 MB), embedded SQLite + FTS5 + vector search. Zero cloud
@@ -121,6 +121,6 @@ MIT — same as Hermes Agent and Perseus Vault.
 
 ## Related
 
-- [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) — the memory engine (formerly "Mimir"/"Mneme")
+- [Perseus Vault](https://github.com/Perseus-Computing-LLC/perseus-vault) — the memory engine
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) — the agent framework
 - [Perseus](https://github.com/Perseus-Computing-LLC/perseus) — live context engine for AI agents
